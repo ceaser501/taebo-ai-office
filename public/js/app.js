@@ -42,13 +42,21 @@ const LOCAL = (store.get('office-server') || 'http://localhost:4300').replace(/\
 let BASE = '';
 let link = 'demo'; // same | local | demo
 
-async function probe(base) {
+// 서버 상태를 읽어 본다. 실패하면 이유를 lastFail 에 남긴다.
+let lastFail = '';
+async function probe(base, ms = 1500) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 1500);
+  const timer = setTimeout(() => ctrl.abort(), ms);
   try {
     const r = await fetch(`${base}api/state`, { cache: 'no-store', signal: ctrl.signal });
-    return r.ok && (r.headers.get('content-type') || '').includes('json') ? await r.json() : null;
-  } catch { return null; } finally { clearTimeout(timer); }
+    if (r.status === 403) { lastFail = 'origin'; return null; }
+    if (r.ok && (r.headers.get('content-type') || '').includes('json')) return await r.json();
+    lastFail = 'other';
+    return null;
+  } catch (e) {
+    lastFail = e.name === 'AbortError' ? 'timeout' : 'network';
+    return null;
+  } finally { clearTimeout(timer); }
 }
 
 async function post(url, body) {
@@ -85,32 +93,51 @@ async function connect() {
   let snap = await probe('');
   if (snap) link = 'same';
   else if (canLocal && !isLocalHost && store.get('office-local')) {
-    snap = await probe(LOCAL);
+    snap = await probe(LOCAL, 4000);
     if (snap) { link = 'local'; BASE = LOCAL; }
   }
-  updateLinkBtn(canLocal && !isLocalHost && link !== 'same');
+  $('linkBtn').hidden = !(canLocal && !isLocalHost && link !== 'same');
+  updateLinkBtn();
   if (snap) return goLive(snap);
   startDemo();
-  // 연결을 켜 둔 상태면, 로컬 서버가 뜨는 순간 실제 모드로 갈아탄다
-  if (link === 'demo' && store.get('office-local') && canLocal && !isLocalHost) {
-    setInterval(async () => { if (await probe(LOCAL)) location.reload(); }, 8000);
-  }
+  if (store.get('office-local') && canLocal && !isLocalHost) { showFail(); watchLocal(); }
 }
 
-function updateLinkBtn(show) {
-  const b = $('linkBtn');
-  b.hidden = !show;
-  b.textContent = link === 'local' ? '연결 해제' : store.get('office-local') ? '내 PC 찾는 중…' : '내 PC 연결';
+function updateLinkBtn(text) {
+  $('linkBtn').textContent = text || (link === 'local' ? '연결 해제' : store.get('office-local') ? '연결 끄기' : '내 PC 연결');
+}
+
+// 못 찾은 이유를 화면에 알려 준다
+function showFail() {
+  const why = {
+    origin: `내 PC 서버가 이 주소(${location.origin})의 요청을 거부했어요. 서버를 ALLOW_ORIGINS=${location.origin} 로 띄워 주세요.`,
+    timeout: '내 PC 서버 응답이 없어요. 크롬에 "로컬 네트워크 접근" 팝업이 떠 있다면 허용해 주세요.',
+    network: '내 PC 서버에 닿지 못했어요. ① 터미널에서 npm run start:claude 가 켜져 있는지 ② 이 브라우저에서 '
+      + `${LOCAL} 이 열리는지 ③ 주소창 왼쪽 아이콘 → 사이트 설정 → "로컬 네트워크 액세스" 허용 ④ 사파리 말고 크롬 사용`,
+    other: `내 PC 서버(${LOCAL})가 이상한 응답을 줬어요. 서버를 git pull 후 다시 띄워 주세요.`,
+  }[lastFail] || '';
+  $('hint').textContent = `🔌 ${why} — 찾으면 자동으로 연결돼요.`;
+  $('hint').classList.add('warn');
+}
+
+let watching = null;
+function watchLocal() {
+  if (watching) return;
+  watching = setInterval(async () => {
+    if (await probe(LOCAL, 4000)) location.reload();
+    else showFail();
+  }, 6000);
 }
 
 $('linkBtn').addEventListener('click', async () => {
   if (link === 'local' || store.get('office-local')) { store.set('office-local', null); location.reload(); return; }
   store.set('office-local', '1');
-  $('linkBtn').textContent = '찾는 중…';
-  if (await probe(LOCAL)) return location.reload();
-  updateLinkBtn(true);
-  $('hint').textContent = `내 PC에서 서버를 못 찾았어요. 터미널에서 npm run start:claude 를 실행하면 자동으로 연결됩니다 (${LOCAL})`;
-  setInterval(async () => { if (await probe(LOCAL)) location.reload(); }, 8000);
+  updateLinkBtn('확인 중…');
+  // 크롬이 로컬 네트워크 접근 허용을 물어볼 수 있으니 넉넉히 기다린다
+  if (await probe(LOCAL, 30000)) return location.reload();
+  updateLinkBtn();
+  showFail();
+  watchLocal();
 });
 
 function onSnap(snap) {

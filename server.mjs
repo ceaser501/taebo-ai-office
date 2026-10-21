@@ -53,11 +53,15 @@ setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20e3)
 
 // ---------- HTTP ----------
 // 같은 주소에서 연 화면이거나 허용한 출처면 통과. 다른 사이트가 몰래 일을 시키지 못하게 막는다.
+const warned = new Set();
 function checkOrigin(req, res) {
   const origin = req.headers.origin;
   if (!origin) return true;
   try { if (new URL(origin).host === req.headers.host) return true; } catch {}
-  if (!ALLOW_ORIGINS.includes(origin)) return false;
+  if (!ALLOW_ORIGINS.includes(origin)) {
+    if (!warned.has(origin)) { warned.add(origin); console.warn(`거부한 화면 주소: ${origin}  (허용하려면 ALLOW_ORIGINS=${origin} 로 실행)`); }
+    return false;
+  }
   res.setHeader('access-control-allow-origin', origin);
   res.setHeader('vary', 'origin');
   return true;
@@ -89,7 +93,11 @@ const server = http.createServer(async (req, res) => {
     } : {});
     return res.end();
   }
-  if (!allowed) return json(res, 403, { error: '허용되지 않은 출처예요. ALLOW_ORIGINS 를 확인하세요.' });
+  if (!allowed) {
+    // 거부 사실만은 화면이 읽을 수 있게 해서 원인을 안내하게 한다 (데이터는 주지 않음)
+    res.setHeader('access-control-allow-origin', req.headers.origin);
+    return json(res, 403, { error: '허용되지 않은 출처예요. ALLOW_ORIGINS 를 확인하세요.' });
+  }
   try {
     if (p === '/api/state') return json(res, 200, engine.snapshot());
     if (p === '/api/events') {
