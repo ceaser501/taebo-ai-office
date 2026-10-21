@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>태보 AI 사무실</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>태보 AI 사무실</h1>
+      <span class="chip" id="modeChip">연결 중</span>
+      <span class="clock" id="clock"></span>
+    </div>
+    <div class="stats" id="topStats"></div>
+  </header>
+
+  <main class="layout">
+    <aside class="left">
+      <h2>층별 안내</h2>
+      <p class="sub" id="leftSub">현재 열린 레인 · 일 묶음별</p>
+      <nav class="floors" id="floors"></nav>
+      <div class="cur-floor" id="curFloor"></div>
+      <div class="legend">
+        <h3>방 안내</h3>
+        <ul>
+          <li><b>자료실</b> 파일 읽기·검색</li>
+          <li><b>정보검색실</b> 웹 검색</li>
+          <li><b>서버실</b> 명령·git</li>
+          <li><b>검수실</b> 테스트·리뷰</li>
+          <li><b>회의실</b> 킥오프·피드백</li>
+          <li><b>3F 대표실</b> 질문·보고</li>
+          <li><b>2F 집필실</b> 위키 기록</li>
+        </ul>
+      </div>
+    </aside>
+
+    <section class="center card">
+      <div class="center-head">
+        <div>
+          <div class="eyebrow">TAEBO AI OFFICE</div>
+          <h2 id="floorTitle">1F 사무실</h2>
+        </div>
+        <div class="tabs" id="tabs">
+          <button data-tab="office" class="on">사무실</button>
+          <button data-tab="board">일감 보드</button>
+          <button data-tab="minutes">회의록</button>
+          <button data-tab="wiki">위키</button>
+        </div>
+      </div>
+      <div class="hint" id="hint">직원을 누르면 지금 하는 일을 볼 수 있어요 · 일감을 시키면 마로가 쪼개서 회의를 엽니다</div>
+      <div class="stage" id="stage">
+        <canvas id="office"></canvas>
+        <div class="meeting" id="meeting" hidden></div>
+        <div class="pop" id="pop" hidden></div>
+      </div>
+      <div class="panel-view" id="board" hidden></div>
+      <div class="panel-view" id="minutes" hidden></div>
+      <div class="panel-view" id="wiki" hidden></div>
+      <div class="center-foot"><span id="footL"></span><span id="footR"></span></div>
+    </section>
+
+    <aside class="right">
+      <section class="card ceo">
+        <div class="row"><h3>대표님 기다림</h3><b class="big-n" id="qCount">0건</b></div>
+        <div id="questions"><p class="muted">대표님께 온 질문 없음</p></div>
+      </section>
+
+      <section class="card order">
+        <h3>일감 시키기</h3>
+        <form id="taskForm">
+          <input id="taskTitle" placeholder="예) 가전 가이드에 필터 청소 알림 추가" maxlength="80" required>
+          <textarea id="taskDetail" rows="2" placeholder="자세한 내용 (선택)"></textarea>
+          <div class="row">
+            <button type="button" class="ghost" id="demoBtn">예시 일감</button>
+            <button type="submit">시키기</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card issues">
+        <h3>문제 셋</h3>
+        <div class="trio" id="trio"></div>
+      </section>
+
+      <section class="card people">
+        <div class="row"><h3>사무실 사람들</h3><span class="muted" id="peopleN"></span></div>
+        <ul id="people"></ul>
+      </section>
+
+      <section class="card logs">
+        <h3>활동 로그</h3>
+        <ul id="logs"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
