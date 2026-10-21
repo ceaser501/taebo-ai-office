@@ -133,6 +133,14 @@ ul { list-style: none; margin: 0; padding: 0; }
 .q .who small { color: var(--mute); font-weight: 500; margin-left: auto; }
 .q p { margin: 4px 0 6px; font-size: 13px; }
 .q form { display: flex; gap: 6px; }
+.q.confirm { border-color: #f0c9a6; background: #fffaf4; }
+.q.confirm form .ghost { padding: 6px 10px; }
+.files { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 12px; margin: 0 0 6px; }
+.files a, .files span { background: #f3f0eb; border-radius: 5px; padding: 1px 6px; color: var(--ink); text-decoration: none; }
+.files a:hover { background: #fbe3cf; }
+.pop .direct { display: flex; gap: 6px; margin-top: 10px; }
+.pop .direct input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.pop .direct button { border: 0; background: var(--accent); color: #fff; font-weight: 700; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
 .q input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
 #questions > .muted { margin-top: 6px; }
 .order form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }

@@ -1,13 +1,13 @@
 // 실제 Claude Code 러너 — `claude -p` 헤드리스 모드를 띄우고 stream-json 이벤트를 엔진으로 넘긴다.
 import { spawn } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
 
 const TOOLS = {
   plan: ['Read', 'Glob', 'Grep'],
   work: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebSearch', 'WebFetch', 'TodoWrite',
-    'Bash(git:*)', 'Bash(npm:*)', 'Bash(node:*)', 'Bash(ls:*)', 'Bash(mkdir:*)', 'Bash(python3:*)'],
+    'Bash(git:*)', 'Bash(npm:*)', 'Bash(node:*)', 'Bash(ls:*)', 'Bash(mkdir:*)', 'Bash(python3:*)', 'Bash(python:*)'],
   review: ['Read', 'Glob', 'Grep', 'Bash(npm:*)', 'Bash(node:*)', 'Bash(ls:*)', 'Bash(git:*)'],
   wiki: ['Read', 'Write', 'Edit', 'Glob', 'Grep'],
 };
@@ -15,6 +15,15 @@ const TOOLS = {
 export function createClaudeRunner({ workspace, bin = 'claude', model, workTools, timeoutMs = 20 * 60e3 } = {}) {
   return {
     name: 'claude',
+    // 일감 폴더의 결과물 목록 (workspace 기준 상대 경로)
+    async listFiles(workdir) {
+      const entries = await readdir(path.join(workspace, workdir), { recursive: true, withFileTypes: true });
+      return entries
+        .filter((e) => e.isFile())
+        .map((e) => path.relative(workspace, path.join(e.parentPath ?? e.path, e.name)).split(path.sep).join('/'))
+        .filter((f) => !/(^|\/)(\.git|node_modules|__pycache__)(\/|$)/.test(f))
+        .slice(0, 60);
+    },
     async run({ kind, prompt, systemPrompt, workdir = '', resumeSessionId, onEvent = () => {} }) {
       const cwd = path.join(workspace, workdir);
       await mkdir(cwd, { recursive: true });
@@ -44,8 +53,11 @@ export function createClaudeRunner({ workspace, bin = 'claude', model, workTools
           if (msg.session_id) sessionId = msg.session_id;
           if (msg.type === 'assistant') {
             for (const c of msg.message?.content || []) {
-              if (c.type === 'tool_use') onEvent({ type: 'tool', name: c.name, input: c.input || {} });
-              else if (c.type === 'text' && c.text?.trim()) { lastText = c.text; onEvent({ type: 'text', text: c.text }); }
+              if (c.type === 'tool_use') {
+                const fp = c.input?.file_path;
+                const file = fp ? path.relative(workspace, path.resolve(cwd, fp)).split(path.sep).join('/') : undefined;
+                onEvent({ type: 'tool', name: c.name, input: c.input || {}, file: file && !file.startsWith('..') ? file : undefined });
+              } else if (c.type === 'text' && c.text?.trim()) { lastText = c.text; onEvent({ type: 'text', text: c.text }); }
             }
           } else if (msg.type === 'result') result = msg;
         });

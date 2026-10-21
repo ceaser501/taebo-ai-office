@@ -120,7 +120,7 @@ function floor1() {
   });
   item(f, 5, 14, 'plant'); item(f, 25, 14, 'plant'); item(f, 11, 21, 'plant'); item(f, 21, 21, 'plant');
   spots(f, '업무석', desks);
-  f.seats = { maro: [2, 17], hangyeol: [8, 16], daon: [13, 16], bora: [18, 16], geom: [23, 16] };
+  f.seats = { maro: [2, 17], hangyeol: [8, 16], daon: [13, 16], bora: [18, 16], geom: [23, 16], haram: [8, 19], dodam: [13, 19] };
   return f;
 }
 

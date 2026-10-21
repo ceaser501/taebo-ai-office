@@ -31,7 +31,7 @@
           <li><b>서버실</b> 명령·git</li>
           <li><b>검수실</b> 테스트·리뷰</li>
           <li><b>회의실</b> 킥오프·피드백</li>
-          <li><b>3F 대표실</b> 질문·보고</li>
+          <li><b>3F 대표실</b> 질문·컨펌</li>
           <li><b>2F 집필실</b> 위키 기록</li>
         </ul>
       </div>
@@ -50,7 +50,7 @@
           <button data-tab="wiki">위키</button>
         </div>
       </div>
-      <div class="hint" id="hint">직원을 누르면 지금 하는 일을 볼 수 있어요 · 일감을 시키면 마로가 쪼개서 회의를 엽니다</div>
+      <div class="hint" id="hint">직원을 누르면 하는 일을 보고 바로 지시할 수 있어요 · 일감을 시키면 마로가 사람·순서를 정해 회의를 엽니다</div>
       <div class="stage" id="stage">
         <canvas id="office"></canvas>
         <div class="meeting" id="meeting" hidden></div>
@@ -71,8 +71,8 @@
       <section class="card order">
         <h3>일감 시키기</h3>
         <form id="taskForm">
-          <input id="taskTitle" placeholder="예) 가전 가이드에 필터 청소 알림 추가" maxlength="80" required>
-          <textarea id="taskDetail" rows="2" placeholder="자세한 내용 (선택)"></textarea>
+          <input id="taskTitle" placeholder="예) AI 활용 강의자료 PPT 만들어줘" maxlength="80" required>
+          <textarea id="taskDetail" rows="2" placeholder="자세한 내용 · 파일명 · 인원 (예: 파일명은 AI활용강의.pptx, 2명이서 협업)"></textarea>
           <div class="row">
             <button type="button" class="ghost" id="demoBtn">예시 일감</button>
             <button type="submit">시키기</button>

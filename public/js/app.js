@@ -11,14 +11,16 @@ const hhmm = (t) => new Date(t).toLocaleTimeString('ko-KR', { hour: '2-digit', m
 const STATUS = { idle: '쉬는 중', working: '일하는 중', meeting: '회의 중', waiting: '대표님 답 대기', chatting: '수다 중' };
 const TSTATUS = {
   queued: '대기', planning: '기획 중', meeting: '킥오프', in_progress: '진행', waiting: '질문 대기', review_wait: '검수 대기',
-  review: '검수 중', wiki_wait: '기록 대기', wiki: '기록 중', done: '완료', failed: '실패',
+  review: '검수 중', confirm_wait: '컨펌 대기', confirm: '대표 컨펌', wiki_wait: '기록 대기', wiki: '기록 중', done: '완료', failed: '실패',
 };
 const COLS = [
   ['대기', ['queued', 'planning', 'meeting']],
   ['진행', ['in_progress', 'waiting']],
-  ['검수·기록', ['review_wait', 'review', 'wiki_wait', 'wiki']],
+  ['검수·컨펌', ['review_wait', 'review', 'confirm_wait', 'confirm', 'wiki_wait', 'wiki']],
   ['완료', ['done', 'failed']],
 ];
+
+const WORK_ROLES = ['researcher', 'docs', 'designer', 'frontend', 'backend'];
 
 const office = new Office($('office'));
 let S = null;
@@ -43,11 +45,16 @@ async function connect() {
     api = {
       addTask: (title, detail) => post('api/tasks', { title, detail }),
       answer: (id, text) => post(`api/questions/${id}/answer`, { text }),
+      decide: (id, approve, comment) => post(`api/approvals/${id}`, { approve, comment }),
+      assign: (agentId, title, detail) => post('api/assign', { agentId, title, detail }),
       demo: () => post('api/demo', {}),
     };
   } catch {
     const engine = createEngine({ runner: createSimRunner(), mode: 'demo', maxParallel: 3, autoDemo: true, autoAnswerMs: 60e3 });
-    api = { addTask: (t, d) => engine.addTask(t, d), answer: (id, t) => engine.answer(id, t), demo: () => engine.demoTask() };
+    api = {
+      addTask: (t, d) => engine.addTask(t, d), answer: (id, t) => engine.answer(id, t), demo: () => engine.demoTask(),
+      decide: (id, ok, c) => engine.decide(id, ok, c), assign: (a, t, d) => engine.assign(a, t, d),
+    };
     engine.subscribe(onSnap);
   }
 }
@@ -83,7 +90,7 @@ function render() {
   $('topStats').innerHTML = `열린 레인 ${m.lanes} · 워커 ${m.workers} · 막힘 ${m.blocked}` +
     (S.mode === 'claude' ? `<span class="cost">누적 $${S.costUsd.toFixed(2)}</span>` : '');
   $('leftSub').textContent = `열린 레인 ${m.lanes} · 완료 ${m.done} · 일감 ${S.tasks.filter((t) => !t.parentId).length}`;
-  $('footL').textContent = `대표 질문 ${S.questions.filter((q) => q.status === 'open').length}건 · 진행 하위 일감 ${S.tasks.filter((t) => t.parentId && t.status === 'in_progress').length}건`;
+  $('footL').textContent = `대표님 기다림 ${m.ceoWaiting}건 · 진행 하위 일감 ${S.tasks.filter((t) => t.parentId && t.status === 'in_progress').length}건`;
   $('footR').textContent = S.mode === 'claude' ? '도구 호출 = 방 이동' : '데모 데이터 · 실제 Claude 아님';
 
   renderFloors();
@@ -101,7 +108,7 @@ function render() {
 
 function renderFloors() {
   const counts = office.floorCounts();
-  const openQ = S?.questions.filter((q) => q.status === 'open').length || 0;
+  const openQ = S?.metrics.ceoWaiting || 0;
   $('floors').innerHTML = [3, 2, 1].map((n) => {
     const badge = n === 3 ? `${openQ}` : `${counts[n]}명`;
     const zero = n === 3 ? !openQ : !counts[n];
@@ -113,18 +120,32 @@ function renderFloors() {
 }
 setInterval(() => S && renderFloors(), 700);
 
+function fileLink(f) {
+  const name = esc(f.split('/').slice(1).join('/') || f);
+  return S.mode === 'claude' ? `<a href="files/${f.split('/').map(encodeURIComponent).join('/')}" target="_blank" rel="noopener">${name}</a>` : `<span>${name}</span>`;
+}
+
 function renderQuestions() {
   const open = S.questions.filter((q) => q.status === 'open');
-  $('qCount').textContent = `${open.length}건`;
-  const key = open.map((q) => q.id).join(',');
+  const aps = S.approvals.filter((x) => x.status === 'open');
+  $('qCount').textContent = `${open.length + aps.length}건`;
+  const key = [...open, ...aps].map((q) => q.id).join(',');
   if (key === qKey) return;
   qKey = key;
-  $('questions').innerHTML = open.length ? open.map((q) => {
+  const confirmCards = aps.map((ap) => {
+    const a = agent(ap.agentId), t = task(ap.taskId);
+    return `<div class="q confirm"><div class="who"><span class="dot" style="background:${a.color}"></span>${esc(a.name)} · 컨펌 요청${ap.round > 1 ? ` (${ap.round}차)` : ''}<small>${esc(t?.id)} · ${hhmm(ap.createdAt)}</small></div>
+      <p><b>${esc(t?.title)}</b><br>${esc(ap.summary)}</p>
+      ${ap.files.length ? `<div class="files">📎 ${ap.files.map(fileLink).join('')}</div>` : ''}
+      <form data-ap="${ap.id}"><input placeholder="수정 요청 시 코멘트"><button type="button" class="ghost" data-act="changes">수정 요청</button><button type="button" data-act="approve">승인</button></form></div>`;
+  });
+  const questionCards = open.map((q) => {
     const a = agent(q.agentId), t = task(q.taskId);
-    return `<div class="q"><div class="who"><span class="dot" style="background:${a.color}"></span>${esc(a.name)}<small>${esc(t?.id)} · ${hhmm(q.createdAt)}</small></div>
+    return `<div class="q"><div class="who"><span class="dot" style="background:${a.color}"></span>${esc(a.name)} · 질문<small>${esc(t?.id)} · ${hhmm(q.createdAt)}</small></div>
       <p>${esc(q.text)}</p>
       <form data-q="${q.id}"><input placeholder="답변을 적어 주세요" required><button>답하기</button></form></div>`;
-  }).join('') : '<p class="muted">대표님께 온 질문 없음</p>';
+  });
+  $('questions').innerHTML = confirmCards.length + questionCards.length ? [...confirmCards, ...questionCards].join('') : '<p class="muted">대표님께 온 질문·컨펌 없음</p>';
 }
 
 function renderPeople() {
@@ -155,6 +176,7 @@ function renderMeeting() {
 
 function renderPop() {
   const el = $('pop');
+  if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
   const a = office.selected && agent(office.selected);
   if (!a || tab !== 'office') { el.hidden = true; return; }
   const t = a.taskId && task(a.taskId);
@@ -163,7 +185,9 @@ function renderPop() {
   el.innerHTML = `<h4><span class="dot" style="background:${a.color}"></span>${esc(a.name)} <small class="muted">${esc(a.title)}</small><button class="x" data-close>×</button></h4>
     <dl><dt>상태</dt><dd>${STATUS[a.status] || a.status}</dd><dt>위치</dt><dd>${a.floor}F ${esc(a.room)}</dd>
     <dt>하는 일</dt><dd>${esc(a.activity || '-')}</dd><dt>일감</dt><dd>${t ? `${esc(t.id)} ${esc(t.title)}` : '-'}</dd></dl>
-    ${logs.length ? `<ul>${logs.map((l) => `<li>${hhmm(l.at)} ${esc(l.text)}</li>`).join('')}</ul>` : ''}`;
+    ${logs.length ? `<ul>${logs.map((l) => `<li>${hhmm(l.at)} ${esc(l.text)}</li>`).join('')}</ul>` : ''}
+    ${WORK_ROLES.includes(a.role) ? `<form class="direct" data-assign="${a.id}"><input placeholder="${esc(a.name)}에게 바로 시키기" required maxlength="80"><button>지시</button></form>
+      ${a.busy ? '<p class="muted">지금 하는 일이 끝나면 시작해요</p>' : ''}` : ''}`;
 }
 
 function renderBoard() {
@@ -172,8 +196,9 @@ function renderBoard() {
     const items = tops.filter((t) => sts.includes(t.status));
     return `<div class="col"><h4>${name}<span>${items.length}</span></h4>${items.map((t) => {
       const ks = S.tasks.filter((k) => k.parentId === t.id);
-      return `<div class="tcard"><div class="tt">${esc(t.title)}</div><div class="meta">${esc(t.id)} · ${TSTATUS[t.status]} · ${hhmm(t.createdAt)}</div>
-        <ul>${ks.map((k) => `<li><span class="dot" style="background:${agent(k.assignee)?.color}"></span>${esc(k.title)}<span class="st">${TSTATUS[k.status]}</span></li>`).join('')}</ul></div>`;
+      const tags = [t.direct ? `직접 지시 → ${agent(t.direct)?.name}` : '', t.headcount ? `${t.headcount}명` : '', t.files?.length ? `파일 ${t.files.length}` : ''].filter(Boolean).join(' · ');
+      return `<div class="tcard"><div class="tt">${esc(t.title)}</div><div class="meta">${esc(t.id)} · ${TSTATUS[t.status]} · ${hhmm(t.createdAt)}${tags ? ` · ${esc(tags)}` : ''}</div>
+        <ul>${ks.map((k) => `<li><span class="dot" style="background:${agent(k.assignee)?.color}"></span>${esc(agent(k.assignee)?.name)} · ${esc(k.title)}<span class="st">${k.status === 'queued' && k.after?.length ? '순서 대기' : TSTATUS[k.status]}</span></li>`).join('')}</ul></div>`;
     }).join('')}</div>`;
   }).join('')}</div>` : '<p class="empty">아직 일감이 없어요. 오른쪽에서 일감을 시켜 보세요.</p>';
 }
@@ -188,7 +213,8 @@ function renderMinutes() {
 
 function renderWiki() {
   $('wiki').innerHTML = S.wiki.length ? S.wiki.map((w) => `<div class="wiki-item"><h4>📚 ${esc(w.title)}</h4>
-    <div class="meta">${esc(w.path)} · ${hhmm(w.at)}</div><p>${esc(w.summary)}</p></div>`).join('')
+    <div class="meta">${esc(w.path)} · ${hhmm(w.at)}</div><p>${esc(w.summary)}</p>
+    ${w.files?.length ? `<div class="files">📎 ${w.files.map(fileLink).join('')}</div>` : ''}</div>`).join('')
     : '<p class="empty">손글씨가 정리한 위키 문서가 여기에 쌓여요.</p>';
 }
 
@@ -229,9 +255,28 @@ $('taskForm').addEventListener('submit', async (e) => {
   $('taskTitle').value = ''; $('taskDetail').value = '';
 });
 $('demoBtn').addEventListener('click', () => api.demo());
+$('questions').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const f = b.closest('form[data-ap]');
+  const comment = f.querySelector('input').value.trim();
+  if (b.dataset.act === 'changes' && !comment) { f.querySelector('input').focus(); f.querySelector('input').placeholder = '무엇을 고칠지 적어 주세요'; return; }
+  qKey = '';
+  await api.decide(f.dataset.ap, b.dataset.act === 'approve', comment);
+});
+$('pop').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target.closest('form[data-assign]');
+  const input = f.querySelector('input');
+  await api.assign(f.dataset.assign, input.value, '');
+  input.value = '';
+  input.blur();
+  renderPop();
+});
 $('questions').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target.closest('form[data-q]');
+  if (!f) return;
   const text = f.querySelector('input').value;
   qKey = '';
   await api.answer(f.dataset.q, text);

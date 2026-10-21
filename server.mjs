@@ -81,6 +81,26 @@ const server = http.createServer(async (req, res) => {
       return t ? json(res, 200, { id: t.id }) : json(res, 400, { error: '제목이 필요해요' });
     }
     if (req.method === 'POST' && p === '/api/demo') return json(res, 200, { id: engine.demoTask()?.id });
+    if (req.method === 'POST' && p === '/api/assign') {
+      const { agentId, title, detail } = await body(req);
+      const t = engine.assign(String(agentId || ''), String(title || ''), String(detail || ''));
+      return t ? json(res, 200, { id: t.id }) : json(res, 400, { error: '지시할 수 없는 직원이거나 제목이 없어요' });
+    }
+    const ap = /^\/api\/approvals\/([\w-]+)$/.exec(p);
+    if (req.method === 'POST' && ap) {
+      const { approve, comment } = await body(req);
+      return engine.decide(ap[1], Boolean(approve), String(comment || '')) ? json(res, 200, { ok: true }) : json(res, 400, { error: '처리할 수 없는 컨펌' });
+    }
+    if (p.startsWith('/files/')) {
+      const file = path.join(WORKSPACE, path.normalize(decodeURIComponent(p.slice(6))));
+      if (!file.startsWith(WORKSPACE + path.sep)) return json(res, 403, { error: 'forbidden' });
+      const data = await readFile(file);
+      res.writeHead(200, {
+        'content-type': TYPES[path.extname(file)] || (file.endsWith('.md') ? 'text/plain; charset=utf-8' : 'application/octet-stream'),
+        'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(path.basename(file))}`,
+      });
+      return res.end(data);
+    }
     const m = /^\/api\/questions\/([\w-]+)\/answer$/.exec(p);
     if (req.method === 'POST' && m) {
       const { text } = await body(req);
