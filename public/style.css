@@ -33,6 +33,8 @@ ul { list-style: none; margin: 0; padding: 0; }
 .brand h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
 .chip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #e6f6ef; color: #17805f; white-space: nowrap; }
 .chip.demo { background: var(--accent-soft); color: #b55c18; }
+.link-btn { border: 1px solid #f0c9a6; background: var(--accent-soft); color: #b55c18; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.link-btn:hover { background: #fbe3cf; }
 .clock { color: var(--mute); font-size: 13px; white-space: nowrap; }
 .stats { font-size: 13px; font-weight: 600; white-space: nowrap; }
 .stats .cost { color: var(--mute); font-weight: 500; margin-left: 8px; }

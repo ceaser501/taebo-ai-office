@@ -4,8 +4,8 @@ Claude 에이전트 팀이 일하는 모습을 아이소메트릭 사무실로 �
 일감을 시키면 PM이 필요한 사람과 순서를 정해 회의를 열고, 팀원들이 실제 Claude Code로 작업한 뒤 대표님께 컨펌을 받으러 옵니다.
 캐릭터는 쓰는 도구에 따라 방을 옮겨 다닙니다.
 
-> **Pages 화면은 데모입니다.** GitHub Pages에서는 Claude를 부르지 않고 가짜 러너로 화면만 움직입니다.
-> 실제로 일을 시키려면 내 PC에서 `npm run start:claude`로 띄워야 합니다. 이후 계획은 [ROADMAP.md](ROADMAP.md)에 있습니다.
+> **Pages 화면은 기본적으로 데모입니다.** 내 PC에서 `npm run start:claude`를 띄워 두고 Pages 화면에서 **[내 PC 연결]**을 누르면 실제로 일을 시킬 수 있습니다.
+> 이건 같은 PC에서만 됩니다. 폰이나 밖에서 쓰는 방법은 [ROADMAP.md](ROADMAP.md)에 있습니다.
 
 ## 실행
 
@@ -19,7 +19,20 @@ npm run start:claude     # 실제 Claude Code로 일함 (토큰 비용 발생)
 `public/index.html`만 정적으로 열어도 동작합니다. 이 경우 서버가 없으면 브라우저 안에서 데모 엔진이 돌아갑니다.
 
 **GitHub Pages**: 저장소 Settings → Pages → Source를 "Deploy from a branch", Branch를 `main` / `/ (root)`로 두면
-`https://<계정>.github.io/taebo-ai-office/` 에서 데모를 바로 볼 수 있습니다.
+https://ceaser501.github.io/taebo-ai-office/ 에서 열립니다.
+
+### Pages 화면으로 내 PC에 일 시키기
+
+1. 내 PC 터미널에서 `npm run start:claude`를 실행합니다.
+2. 같은 PC의 크롬에서 Pages 주소를 열고, 상단의 **[내 PC 연결]**을 누릅니다.
+   - 크롬이 "로컬 네트워크 접근"을 물어보면 허용합니다.
+3. 칩이 `실시간 · Claude (내 PC)`로 바뀌면 연결된 것입니다. 이제부터 시키는 일은 내 PC의 Claude가 합니다.
+
+- 한 번 연결해 두면 다음부터는 자동으로 붙습니다. 로컬 서버가 꺼져 있으면 데모로 돌다가, 켜지는 순간 자동으로 실제 모드로 바뀝니다.
+- **[연결 해제]**를 누르면 다시 데모로 돌아갑니다.
+- 로컬 서버는 `ALLOW_ORIGINS`(기본 `https://ceaser501.github.io`)에 있는 주소의 화면 요청만 받습니다. 다른 사이트가 내 PC 서버에 일을 시키지 못하게 막는 설정입니다.
+- 포트를 바꿨다면 Pages 주소 뒤에 `?server=http://localhost:5000`처럼 붙여서 한 번 열면 기억합니다.
+- 크롬과 엣지는 됩니다. 사파리는 https 사이트에서 http localhost 연결을 막아서 안 될 수 있습니다.
 
 실제 모드를 쓰려면 `claude` CLI가 설치되어 있고 로그인(또는 `ANTHROPIC_API_KEY`)이 되어 있어야 합니다.
 PPT를 만들게 하려면 `pip install python-pptx`도 해 두세요. 없으면 도담이 3층에 와서 설치해 달라고 질문합니다.
@@ -91,6 +104,7 @@ CLAUDE_MODEL=haiku npm run start:claude
 | `ALLOWED_TOOLS` | 아래 참고 | 실무 에이전트에게 허용할 도구, 쉼표로 구분 |
 | `SIM_SPEED` | `1` | 시뮬레이션 속도 배수 |
 | `AUTO_DEMO` | `1` | sim 모드에서 일이 없으면 예시 일감을 자동으로 넣음 |
+| `ALLOW_ORIGINS` | `https://ceaser501.github.io` | 내 PC 서버에 붙을 수 있는 외부 화면 주소, 쉼표로 구분 |
 
 실무 에이전트의 기본 허용 도구는 Read, Write, Edit, Glob, Grep, WebSearch, WebFetch, TodoWrite와 `git`, `npm`, `node`, `ls`, `mkdir`, `python3`/`python` 명령입니다.
 실제 모드에서는 결과물 파일을 패널의 링크(`/files/…`)로 바로 열거나 받을 수 있습니다.

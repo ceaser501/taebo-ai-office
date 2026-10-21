@@ -15,6 +15,8 @@ const DATA = path.join(ROOT, 'data', 'state.json');
 const PORT = Number(process.env.PORT || 4300);
 const MODE = process.env.MODE === 'claude' ? 'claude' : 'sim';
 const WORKSPACE = path.resolve(process.env.WORKSPACE || path.join(ROOT, 'workspace'));
+// 이 주소에서 연 화면(GitHub Pages 등)이 내 PC의 서버에 붙을 수 있다. 쉼표로 여러 개.
+const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS ?? 'https://ceaser501.github.io').split(',').map((s) => s.trim()).filter(Boolean);
 
 const runner = MODE === 'claude'
   ? createClaudeRunner({
@@ -50,6 +52,17 @@ engine.subscribe((snap) => {
 setInterval(() => { for (const res of clients) res.write(': ping\n\n'); }, 20e3);
 
 // ---------- HTTP ----------
+// 같은 주소에서 연 화면이거나 허용한 출처면 통과. 다른 사이트가 몰래 일을 시키지 못하게 막는다.
+function checkOrigin(req, res) {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try { if (new URL(origin).host === req.headers.host) return true; } catch {}
+  if (!ALLOW_ORIGINS.includes(origin)) return false;
+  res.setHeader('access-control-allow-origin', origin);
+  res.setHeader('vary', 'origin');
+  return true;
+}
+
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 function json(res, code, body) {
@@ -66,6 +79,17 @@ async function body(req) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
+  const allowed = checkOrigin(req, res);
+  if (req.method === 'OPTIONS') {
+    res.writeHead(allowed ? 204 : 403, allowed ? {
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'content-type',
+      'access-control-allow-private-network': 'true',
+      'access-control-max-age': '600',
+    } : {});
+    return res.end();
+  }
+  if (!allowed) return json(res, 403, { error: '허용되지 않은 출처예요. ALLOW_ORIGINS 를 확인하세요.' });
   try {
     if (p === '/api/state') return json(res, 200, engine.snapshot());
     if (p === '/api/events') {
@@ -122,4 +146,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`태보 AI 사무실 → http://localhost:${PORT}  (모드: ${MODE === 'claude' ? '실제 Claude' : '시뮬레이션'})`);
   if (MODE === 'claude') console.log(`작업 폴더: ${WORKSPACE}`);
+  if (ALLOW_ORIGINS.length) console.log(`외부 화면 연결 허용: ${ALLOW_ORIGINS.join(', ')}`);
 });

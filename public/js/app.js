@@ -29,35 +29,89 @@ let tab = 'office';
 let qKey = '';
 
 // ---------- 연결 ----------
+// 1) 서버가 직접 띄운 화면이면 같은 주소의 서버에 붙는다.
+// 2) Pages 같은 정적 호스팅이면, "내 PC 연결"을 켠 경우에만 내 PC의 로컬 서버(기본 localhost:4300)를 찾는다.
+// 3) 둘 다 없으면 브라우저 안 데모 엔진으로 돈다.
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+};
+const params = new URLSearchParams(location.search);
+if (params.get('server')) { store.set('office-server', params.get('server')); store.set('office-local', '1'); }
+const LOCAL = (store.get('office-server') || 'http://localhost:4300').replace(/\/?$/, '/');
+let BASE = '';
+let link = 'demo'; // same | local | demo
+
+async function probe(base) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const r = await fetch(`${base}api/state`, { cache: 'no-store', signal: ctrl.signal });
+    return r.ok && (r.headers.get('content-type') || '').includes('json') ? await r.json() : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
 async function post(url, body) {
-  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch(BASE + url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
+function goLive(snap) {
+  onSnap(snap);
+  const es = new EventSource(`${BASE}api/events`);
+  es.onmessage = (e) => onSnap(JSON.parse(e.data));
+  api = {
+    addTask: (title, detail) => post('api/tasks', { title, detail }),
+    answer: (id, text) => post(`api/questions/${id}/answer`, { text }),
+    decide: (id, approve, comment) => post(`api/approvals/${id}`, { approve, comment }),
+    assign: (agentId, title, detail) => post('api/assign', { agentId, title, detail }),
+    demo: () => post('api/demo', {}),
+  };
+}
+
+function startDemo() {
+  const engine = createEngine({ runner: createSimRunner(), mode: 'demo', maxParallel: 3, autoDemo: true, autoAnswerMs: 60e3 });
+  api = {
+    addTask: (t, d) => engine.addTask(t, d), answer: (id, t) => engine.answer(id, t), demo: () => engine.demoTask(),
+    decide: (id, ok, c) => engine.decide(id, ok, c), assign: (a, t, d) => engine.assign(a, t, d),
+  };
+  engine.subscribe(onSnap);
+}
+
 async function connect() {
-  try {
-    const r = await fetch('api/state', { cache: 'no-store' });
-    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('no server');
-    onSnap(await r.json());
-    const es = new EventSource('api/events');
-    es.onmessage = (e) => onSnap(JSON.parse(e.data));
-    api = {
-      addTask: (title, detail) => post('api/tasks', { title, detail }),
-      answer: (id, text) => post(`api/questions/${id}/answer`, { text }),
-      decide: (id, approve, comment) => post(`api/approvals/${id}`, { approve, comment }),
-      assign: (agentId, title, detail) => post('api/assign', { agentId, title, detail }),
-      demo: () => post('api/demo', {}),
-    };
-  } catch {
-    const engine = createEngine({ runner: createSimRunner(), mode: 'demo', maxParallel: 3, autoDemo: true, autoAnswerMs: 60e3 });
-    api = {
-      addTask: (t, d) => engine.addTask(t, d), answer: (id, t) => engine.answer(id, t), demo: () => engine.demoTask(),
-      decide: (id, ok, c) => engine.decide(id, ok, c), assign: (a, t, d) => engine.assign(a, t, d),
-    };
-    engine.subscribe(onSnap);
+  const canLocal = location.protocol === 'https:' || location.protocol === 'http:';
+  const isLocalHost = canLocal && new URL(LOCAL).origin === location.origin;
+  let snap = await probe('');
+  if (snap) link = 'same';
+  else if (canLocal && !isLocalHost && store.get('office-local')) {
+    snap = await probe(LOCAL);
+    if (snap) { link = 'local'; BASE = LOCAL; }
+  }
+  updateLinkBtn(canLocal && !isLocalHost && link !== 'same');
+  if (snap) return goLive(snap);
+  startDemo();
+  // 연결을 켜 둔 상태면, 로컬 서버가 뜨는 순간 실제 모드로 갈아탄다
+  if (link === 'demo' && store.get('office-local') && canLocal && !isLocalHost) {
+    setInterval(async () => { if (await probe(LOCAL)) location.reload(); }, 8000);
   }
 }
+
+function updateLinkBtn(show) {
+  const b = $('linkBtn');
+  b.hidden = !show;
+  b.textContent = link === 'local' ? '연결 해제' : store.get('office-local') ? '내 PC 찾는 중…' : '내 PC 연결';
+}
+
+$('linkBtn').addEventListener('click', async () => {
+  if (link === 'local' || store.get('office-local')) { store.set('office-local', null); location.reload(); return; }
+  store.set('office-local', '1');
+  $('linkBtn').textContent = '찾는 중…';
+  if (await probe(LOCAL)) return location.reload();
+  updateLinkBtn(true);
+  $('hint').textContent = `내 PC에서 서버를 못 찾았어요. 터미널에서 npm run start:claude 를 실행하면 자동으로 연결됩니다 (${LOCAL})`;
+  setInterval(async () => { if (await probe(LOCAL)) location.reload(); }, 8000);
+});
 
 function onSnap(snap) {
   const skew = Date.now() - snap.now;
@@ -85,7 +139,7 @@ const task = (id) => S?.tasks.find((t) => t.id === id);
 function render() {
   if (!S) return;
   const m = S.metrics;
-  $('modeChip').textContent = S.mode === 'claude' ? '실시간 · Claude' : S.mode === 'demo' ? '데모 · 브라우저' : '시뮬레이션';
+  $('modeChip').textContent = (S.mode === 'claude' ? '실시간 · Claude' : S.mode === 'demo' ? '데모 · 브라우저' : '시뮬레이션') + (link === 'local' ? ' (내 PC)' : '');
   $('modeChip').classList.toggle('demo', S.mode !== 'claude');
   $('topStats').innerHTML = `열린 레인 ${m.lanes} · 워커 ${m.workers} · 막힘 ${m.blocked}` +
     (S.mode === 'claude' ? `<span class="cost">누적 $${S.costUsd.toFixed(2)}</span>` : '');
@@ -122,7 +176,7 @@ setInterval(() => S && renderFloors(), 700);
 
 function fileLink(f) {
   const name = esc(f.split('/').slice(1).join('/') || f);
-  return S.mode === 'claude' ? `<a href="files/${f.split('/').map(encodeURIComponent).join('/')}" target="_blank" rel="noopener">${name}</a>` : `<span>${name}</span>`;
+  return S.mode === 'claude' ? `<a href="${BASE}files/${f.split('/').map(encodeURIComponent).join('/')}" target="_blank" rel="noopener">${name}</a>` : `<span>${name}</span>`;
 }
 
 function renderQuestions() {

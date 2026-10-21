@@ -6,7 +6,7 @@
 
 - 내 PC에서 `npm run start:claude`로 띄우면 직원들이 실제 Claude Code(`claude -p`)로 일합니다.
 - Claude Code 구독 로그인을 그대로 씁니다. PC가 켜져 있어야 합니다.
-- GitHub Pages 화면은 Claude를 부르지 않는 데모입니다.
+- GitHub Pages 화면에서 **[내 PC 연결]**을 누르면 같은 PC의 로컬 서버에 붙어서 실제로 일을 시킬 수 있습니다. 다른 기기에서는 데모입니다.
 
 ## 나중에 검토할 것
 
