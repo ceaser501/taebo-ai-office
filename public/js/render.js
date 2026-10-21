@@ -54,11 +54,18 @@ export class Office {
     this.selected = id;
     this.follow = true;
     this.zoomGoal = Math.max(this.zoom, 1.8);
+    this.resetting = false;
     const fl = s.hiddenUntil ? s.pendingFloor ?? s.floor : s.floor;
     if (fl !== this.floor) { this.setFloor(fl); this.onFloor?.(fl); }
   }
 
-  clearSelection() { this.selected = null; this.follow = false; this.zoomGoal = null; }
+  // 선택을 풀고, 따라가던 중이었으면 화면을 부드럽게 전체 보기로 되돌린다
+  clearSelection() {
+    if (this.follow) this.resetting = true;
+    this.selected = null;
+    this.follow = false;
+    this.zoomGoal = null;
+  }
 
   // 따라가는 직원의 지금 상태 한 줄
   trackInfo() {
@@ -196,7 +203,7 @@ export class Office {
 
   panBy(dx, dy) { if (this.zoom > 1) this.pan = [this.pan[0] + dx, this.pan[1] + dy]; }
 
-  resetView() { this.zoom = 1; this.pan = [0, 0]; }
+  resetView() { this.zoom = 1; this.pan = [0, 0]; this.resetting = false; this.zoomGoal = null; }
 
   iso(x, y, z = 0) { return [this.ox + (x - y) * this.a, this.oy + ((x + y) * this.a) / 2 - z * this.a]; }
 
@@ -567,6 +574,12 @@ export class Office {
   draw(now) {
     const dt = Math.min(0.1, (now - (this.lastDraw || now)) / 1000);
     this.lastDraw = now;
+    if (this.resetting) {
+      const k = Math.min(1, dt * 5);
+      this.zoom += (1 - this.zoom) * k;
+      this.pan = [this.pan[0] * (1 - k), this.pan[1] * (1 - k)];
+      if (Math.abs(this.zoom - 1) < 0.01 && Math.hypot(...this.pan) < 1) this.resetView();
+    }
     if (this.zoomGoal) {
       this.zoom += (this.zoomGoal - this.zoom) * Math.min(1, dt * 5);
       if (Math.abs(this.zoomGoal - this.zoom) < 0.01) { this.zoom = this.zoomGoal; this.zoomGoal = null; }

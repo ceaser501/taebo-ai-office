@@ -306,7 +306,7 @@ document.addEventListener('click', (e) => {
   const li = e.target.closest('[data-agent]');
   if (li) { setTab('office'); office.track(li.dataset.agent); render(); return; }
   if (e.target.closest('[data-close]')) { office.clearSelection(); renderPop(); }
-  if (e.target.closest('[data-follow]')) { office.follow = !office.follow; if (office.follow) office.zoomGoal = Math.max(office.zoom, 1.8); }
+  if (e.target.closest('[data-follow]')) { office.clearSelection(); renderPop(); $('track').hidden = true; }
 });
 
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
@@ -364,13 +364,13 @@ $('zoomCtl').addEventListener('click', (e) => {
 // 따라가는 직원 표시줄
 office.onFloor = () => { renderFloors(); renderMeeting(); };
 setInterval(() => {
-  const info = tab === 'office' && office.trackInfo();
+  const info = tab === 'office' && office.follow && office.trackInfo();
   const el = $('track');
   el.hidden = !info;
   if (!info) return;
   el.innerHTML = `<span class="dot" style="background:${info.color}"></span><b>${esc(info.name)}</b>
-    <span>${office.follow ? '👀 따라가는 중' : '선택됨'} · ${esc(info.text)}</span>
-    <button data-follow>${office.follow ? '그만 따라가기' : '따라가기'}</button>`;
+    <span>👀 따라가는 중 · ${esc(info.text)}</span>
+    <button data-follow>그만 따라가기</button>`;
 }, 300);
 
 $('taskForm').addEventListener('submit', async (e) => {
