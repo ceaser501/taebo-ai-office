@@ -15,6 +15,9 @@ npm run start:claude     # 실제 Claude Code로 일함 (토큰 비용 발생)
 
 `public/index.html`만 정적으로 열어도 동작합니다. 이 경우 서버가 없으면 브라우저 안에서 데모 엔진이 돌아갑니다.
 
+**GitHub Pages**: 저장소 Settings → Pages → Source를 "Deploy from a branch", Branch를 `main` / `/ (root)`로 두면
+`https://<계정>.github.io/taebo-ai-office/` 에서 데모를 바로 볼 수 있습니다.
+
 실제 모드를 쓰려면 `claude` CLI가 설치되어 있고 로그인(또는 `ANTHROPIC_API_KEY`)이 되어 있어야 합니다.
 
 ## 일이 흘러가는 순서
