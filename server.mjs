@@ -143,6 +143,13 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on('error', (e) => {
+  if (e.code !== 'EADDRINUSE') throw e;
+  console.error(`\n${PORT}번 포트를 이미 다른 프로그램이 쓰고 있어요. (아까 띄운 서버가 아직 켜져 있을 수 있어요)`);
+  console.error(`  끄기:          kill $(lsof -t -i :${PORT})`);
+  console.error(`  다른 포트로:   PORT=${PORT + 1} npm run start:claude   (Pages에서는 ?server=http://localhost:${PORT + 1} 로 한 번 열기)\n`);
+  process.exit(1);
+});
 server.listen(PORT, () => {
   console.log(`태보 AI 사무실 → http://localhost:${PORT}  (모드: ${MODE === 'claude' ? '실제 Claude' : '시뮬레이션'})`);
   if (MODE === 'claude') console.log(`작업 폴더: ${WORKSPACE}`);
