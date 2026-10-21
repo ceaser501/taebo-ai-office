@@ -26,7 +26,7 @@ const office = new Office($('office'));
 let S = null;
 let api = null;
 let tab = 'office';
-let qKey = '';
+let qKey = null;
 
 // ---------- 연결 ----------
 // 1) 서버가 직접 띄운 화면이면 같은 주소의 서버에 붙는다.
@@ -302,10 +302,11 @@ function renderWiki() {
 // ---------- 입력 ----------
 document.addEventListener('click', (e) => {
   const fl = e.target.closest('[data-floor]');
-  if (fl) { office.setFloor(fl.dataset.floor); office.resetView(); setTab('office'); renderFloors(); renderMeeting(); return; }
+  if (fl) { office.follow = false; office.setFloor(fl.dataset.floor); office.resetView(); setTab('office'); renderFloors(); renderMeeting(); return; }
   const li = e.target.closest('[data-agent]');
-  if (li) { const a = agent(li.dataset.agent); office.selected = a.id; office.setFloor(a.floor); setTab('office'); render(); return; }
-  if (e.target.closest('[data-close]')) { office.selected = null; renderPop(); }
+  if (li) { setTab('office'); office.track(li.dataset.agent); render(); return; }
+  if (e.target.closest('[data-close]')) { office.clearSelection(); renderPop(); }
+  if (e.target.closest('[data-follow]')) { office.follow = !office.follow; if (office.follow) office.zoomGoal = Math.max(office.zoom, 1.8); }
 });
 
 $('tabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
@@ -328,6 +329,7 @@ canvas.addEventListener('pointermove', (e) => {
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (drag.moved || Math.hypot(dx, dy) > 4) {
       drag.moved = true;
+      office.follow = false;
       office.panBy(dx, dy);
       drag.x = e.clientX; drag.y = e.clientY;
       canvas.style.cursor = office.zoom > 1 ? 'grabbing' : 'default';
@@ -342,7 +344,8 @@ canvas.addEventListener('pointerup', (e) => {
   drag = null;
   if (wasDrag) return;
   const r = canvas.getBoundingClientRect();
-  office.selected = office.hit(e.clientX - r.left, e.clientY - r.top);
+  const id = office.hit(e.clientX - r.left, e.clientY - r.top);
+  if (id) office.track(id); else office.clearSelection();
   renderPop();
 });
 canvas.addEventListener('wheel', (e) => {
@@ -355,8 +358,20 @@ $('zoomCtl').addEventListener('click', (e) => {
   if (!b) return;
   if (b.dataset.z === 'in') office.zoomAt(1.3);
   else if (b.dataset.z === 'out') office.zoomAt(1 / 1.3);
-  else office.resetView();
+  else { office.follow = false; office.resetView(); }
 });
+
+// 따라가는 직원 표시줄
+office.onFloor = () => { renderFloors(); renderMeeting(); };
+setInterval(() => {
+  const info = tab === 'office' && office.trackInfo();
+  const el = $('track');
+  el.hidden = !info;
+  if (!info) return;
+  el.innerHTML = `<span class="dot" style="background:${info.color}"></span><b>${esc(info.name)}</b>
+    <span>${office.follow ? '👀 따라가는 중' : '선택됨'} · ${esc(info.text)}</span>
+    <button data-follow>${office.follow ? '그만 따라가기' : '따라가기'}</button>`;
+}, 300);
 
 $('taskForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -370,7 +385,7 @@ $('questions').addEventListener('click', async (e) => {
   const f = b.closest('form[data-ap]');
   const comment = f.querySelector('input').value.trim();
   if (b.dataset.act === 'changes' && !comment) { f.querySelector('input').focus(); f.querySelector('input').placeholder = '무엇을 고칠지 적어 주세요'; return; }
-  qKey = '';
+  qKey = null;
   await api.decide(f.dataset.ap, b.dataset.act === 'approve', comment);
 });
 $('pop').addEventListener('submit', async (e) => {
@@ -387,7 +402,7 @@ $('questions').addEventListener('submit', async (e) => {
   const f = e.target.closest('form[data-q]');
   if (!f) return;
   const text = f.querySelector('input').value;
-  qKey = '';
+  qKey = null;
   await api.answer(f.dataset.q, text);
 });
 

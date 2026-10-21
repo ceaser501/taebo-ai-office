@@ -36,6 +36,9 @@ export class Office {
     this.layer = null;
     this.zoom = 1;
     this.pan = [0, 0];
+    this.follow = false; // 선택한 직원을 카메라가 따라가는지
+    this.zoomGoal = null;
+    this.onFloor = null; // 따라가다 층이 바뀌면 화면에 알린다
     this.itemAt = {};
     for (const [id, f] of Object.entries(FLOORS)) this.itemAt[id] = new Map(f.items.map((it) => [`${it.x},${it.y}`, it]));
     this.ceo = { id: 'ceo', name: '대표님', role: 'ceo', color: '#2d3340', hair: '#1c1c1c' };
@@ -43,6 +46,32 @@ export class Office {
   }
 
   setFloor(id) { this.floor = Number(id); this.layer = null; }
+
+  // 직원을 선택하고 카메라로 따라간다
+  track(id) {
+    const s = this.sprites.get(id);
+    if (!s) return;
+    this.selected = id;
+    this.follow = true;
+    this.zoomGoal = Math.max(this.zoom, 1.8);
+    const fl = s.hiddenUntil ? s.pendingFloor ?? s.floor : s.floor;
+    if (fl !== this.floor) { this.setFloor(fl); this.onFloor?.(fl); }
+  }
+
+  clearSelection() { this.selected = null; this.follow = false; this.zoomGoal = null; }
+
+  // 따라가는 직원의 지금 상태 한 줄
+  trackInfo() {
+    const s = this.selected && this.sprites.get(this.selected);
+    if (!s?.agent) return null;
+    const a = s.agent;
+    let text;
+    if (s.hiddenUntil) text = `엘리베이터 타는 중 → ${s.pendingFloor ?? s.target.floor}F`;
+    else if (s.pendingFloor != null && s.pendingFloor !== s.floor) text = `${s.pendingFloor}F ${a.room}(으)로 가는 중 · 엘리베이터로`;
+    else if (s.walking) text = `${a.room}(으)로 가는 중`;
+    else text = `${s.floor}F ${a.room}${a.activity ? ` · ${a.activity}` : ''}`;
+    return { id: a.id, name: a.name, color: a.color, text };
+  }
 
   // ---------- 상태 동기화 & 이동 ----------
   sync(agents) {
@@ -110,6 +139,7 @@ export class Office {
         s.x = el.x + 0.5; s.y = el.y + 0.5;
         if (s.floor !== s.target.floor) { s.pendingFloor = s.target.floor; s.path = []; }
         else s.path = this.pathTo(s, s.floor, s.target.spot);
+        if (this.follow && this.selected === s.id && s.floor !== this.floor) { this.setFloor(s.floor); this.onFloor?.(s.floor); }
         continue;
       }
       if (s.path.length) {
@@ -451,8 +481,9 @@ export class Office {
     const bob = o.walking ? Math.abs(Math.sin(o.t * 11)) * 0.06 * u : Math.sin(o.t * 2.2) * 0.012 * u;
     const sit = o.sit && !o.walking;
     if (o.selected || o.hover) {
-      ctx.strokeStyle = p.color; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(px, py, u * 0.42, u * 0.2, 0, 0, Math.PI * 2); ctx.stroke();
+      const pulse = o.selected ? 1 + 0.12 * Math.sin(o.t * 6) : 1;
+      ctx.strokeStyle = p.color; ctx.lineWidth = o.selected ? 3 : 2;
+      ctx.beginPath(); ctx.ellipse(px, py, u * 0.42 * pulse, u * 0.2 * pulse, 0, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.fillStyle = 'rgba(0,0,0,.18)';
     ctx.beginPath(); ctx.ellipse(px, py, u * 0.28, u * 0.12, 0, 0, Math.PI * 2); ctx.fill();
@@ -534,13 +565,29 @@ export class Office {
 
   // ---------- 메인 그리기 ----------
   draw(now) {
+    const dt = Math.min(0.1, (now - (this.lastDraw || now)) / 1000);
+    this.lastDraw = now;
+    if (this.zoomGoal) {
+      this.zoom += (this.zoomGoal - this.zoom) * Math.min(1, dt * 5);
+      if (Math.abs(this.zoomGoal - this.zoom) < 0.01) { this.zoom = this.zoomGoal; this.zoomGoal = null; }
+    }
     this.fit();
+    const followed = this.follow && this.selected && this.sprites.get(this.selected);
+    if (followed && followed.floor === this.floor && !followed.hiddenUntil) {
+      const [px, py] = this.iso(followed.x, followed.y, 0.6);
+      const k = Math.min(1, dt * 4);
+      // 오른쪽 위 정보 카드에 가리지 않게 가운데보다 조금 왼쪽에 둔다
+      const cx = this.cw > 700 ? this.cw * 0.4 : this.cw / 2;
+      this.pan = [this.pan[0] + (cx - px) * k, this.pan[1] + (this.ch * 0.55 - py) * k];
+      this.fit();
+    }
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.cw, this.ch);
     const key = `${this.floor}:${this.a}:${this.ox}:${this.oy}:${this.canvas.width}`;
     if (!this.layer || key !== this.layerKey) { this.layer = this.drawFloorLayer(); this.layerKey = key; }
     ctx.drawImage(this.layer, 0, 0, this.cw, this.ch);
+    this.drawRoute(ctx, now);
 
     const f = FLOORS[this.floor];
     const here = [...this.sprites.values()].filter((s) => s.floor === this.floor && !s.hiddenUntil && s.agent);
@@ -601,6 +648,32 @@ export class Office {
         this.label(ctx, a.activity, h.px, h.top - 12, { size: 12, dot: a.status === 'waiting' ? '#e0566a' : '#22a37f', border: a.color });
       }
     }
+  }
+
+  drawRoute(ctx, now) {
+    const s = this.selected && this.sprites.get(this.selected);
+    if (!s?.agent || s.floor !== this.floor || s.hiddenUntil || !s.path.length) return;
+    const pts = [this.iso(s.x, s.y), ...s.path.map(([x, y]) => this.iso(x + 0.5, y + 0.5))];
+    ctx.save();
+    ctx.strokeStyle = s.agent.color;
+    ctx.lineWidth = Math.max(2, this.a * 0.12);
+    ctx.lineCap = 'round';
+    ctx.setLineDash([this.a * 0.25, this.a * 0.3]);
+    ctx.lineDashOffset = -now / 30;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.stroke();
+    const [ex, ey] = pts[pts.length - 1];
+    const pulse = 0.5 + 0.5 * Math.sin(now / 220);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.35 + 0.4 * pulse;
+    ctx.beginPath(); ctx.ellipse(ex, ey, this.a * (0.35 + 0.15 * pulse), this.a * (0.17 + 0.07 * pulse), 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = s.agent.color;
+    ctx.beginPath(); ctx.ellipse(ex, ey, this.a * 0.12, this.a * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+    if (s.pendingFloor != null && s.pendingFloor !== s.floor) this.label(ctx, `→ ${s.pendingFloor}F`, ex, ey - this.a * 0.9, { size: 12, bg: s.agent.color, color: '#fff', border: s.agent.color });
+    ctx.restore();
   }
 
   hit(mx, my) {
