@@ -302,7 +302,7 @@ function renderWiki() {
 // ---------- 입력 ----------
 document.addEventListener('click', (e) => {
   const fl = e.target.closest('[data-floor]');
-  if (fl) { office.setFloor(fl.dataset.floor); setTab('office'); renderFloors(); renderMeeting(); return; }
+  if (fl) { office.setFloor(fl.dataset.floor); office.resetView(); setTab('office'); renderFloors(); renderMeeting(); return; }
   const li = e.target.closest('[data-agent]');
   if (li) { const a = agent(li.dataset.agent); office.selected = a.id; office.setFloor(a.floor); setTab('office'); render(); return; }
   if (e.target.closest('[data-close]')) { office.selected = null; renderPop(); }
@@ -319,15 +319,43 @@ function setTab(t) {
 }
 
 const canvas = $('office');
-canvas.addEventListener('mousemove', (e) => {
+// 휠로 확대·축소, 끌어서 이동, 클릭으로 직원 선택
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => {
   const r = canvas.getBoundingClientRect();
+  if (drag) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (drag.moved || Math.hypot(dx, dy) > 4) {
+      drag.moved = true;
+      office.panBy(dx, dy);
+      drag.x = e.clientX; drag.y = e.clientY;
+      canvas.style.cursor = office.zoom > 1 ? 'grabbing' : 'default';
+      return;
+    }
+  }
   office.hover = office.hit(e.clientX - r.left, e.clientY - r.top);
-  canvas.style.cursor = office.hover ? 'pointer' : 'default';
+  canvas.style.cursor = office.hover ? 'pointer' : office.zoom > 1 ? 'grab' : 'default';
 });
-canvas.addEventListener('click', (e) => {
+canvas.addEventListener('pointerup', (e) => {
+  const wasDrag = drag?.moved;
+  drag = null;
+  if (wasDrag) return;
   const r = canvas.getBoundingClientRect();
   office.selected = office.hit(e.clientX - r.left, e.clientY - r.top);
   renderPop();
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  office.zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+$('zoomCtl').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.z === 'in') office.zoomAt(1.3);
+  else if (b.dataset.z === 'out') office.zoomAt(1 / 1.3);
+  else office.resetView();
 });
 
 $('taskForm').addEventListener('submit', async (e) => {

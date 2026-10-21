@@ -34,6 +34,8 @@ export class Office {
     this.selected = null;
     this.hover = null;
     this.layer = null;
+    this.zoom = 1;
+    this.pan = [0, 0];
     this.itemAt = {};
     for (const [id, f] of Object.entries(FLOORS)) this.itemAt[id] = new Map(f.items.map((it) => [`${it.x},${it.y}`, it]));
     this.ceo = { id: 'ceo', name: '대표님', role: 'ceo', color: '#2d3340', hair: '#1c1c1c' };
@@ -144,10 +146,27 @@ export class Office {
     const f = FLOORS[this.floor];
     const span = f.w + f.h;
     const a = Math.min((cw - 24) / span, (ch - 24) / (span / 2 + 2.9));
-    this.a = a; this.dpr = dpr; this.cw = cw; this.ch = ch;
-    this.ox = cw / 2 - ((f.w - f.h) / 2) * a;
-    this.oy = (ch - (span / 2 + 2.4) * a) / 2 + 2.0 * a;
+    this.dpr = dpr; this.cw = cw; this.ch = ch;
+    // 화면 중심 기준으로 확대하고, 끌어서 옮긴 만큼 더한다
+    const z = this.zoom, [px, py] = this.pan;
+    this.a = a * z;
+    this.ox = cw / 2 + (cw / 2 - ((f.w - f.h) / 2) * a - cw / 2) * z + px;
+    this.oy = ch / 2 + ((ch - (span / 2 + 2.4) * a) / 2 + 2.0 * a - ch / 2) * z + py;
   }
+
+  // (mx, my) 지점이 그대로 있도록 확대·축소
+  zoomAt(factor, mx = this.cw / 2, my = this.ch / 2) {
+    const z1 = this.zoom, z2 = Math.max(1, Math.min(3.5, z1 * factor));
+    if (z2 === z1) return;
+    const keep = (m, c, p) => (m - c) - (z2 * (m - c - p)) / z1;
+    this.pan = [keep(mx, this.cw / 2, this.pan[0]), keep(my, this.ch / 2, this.pan[1])];
+    this.zoom = z2;
+    if (z2 === 1) this.pan = [0, 0];
+  }
+
+  panBy(dx, dy) { if (this.zoom > 1) this.pan = [this.pan[0] + dx, this.pan[1] + dy]; }
+
+  resetView() { this.zoom = 1; this.pan = [0, 0]; }
 
   iso(x, y, z = 0) { return [this.ox + (x - y) * this.a, this.oy + ((x + y) * this.a) / 2 - z * this.a]; }
 
@@ -476,7 +495,7 @@ export class Office {
   label(ctx, text, x, y, o = {}) {
     ctx.font = o.font || `600 ${o.size || 11}px Pretendard, system-ui, sans-serif`;
     const w = ctx.measureText(text).width + (o.dot ? 16 : 10);
-    const h = (o.size || 11) + 8;
+    const h = (o.size || 11) + 10;
     ctx.fillStyle = o.bg || 'rgba(255,255,255,.95)';
     ctx.strokeStyle = o.border || 'rgba(0,0,0,.12)';
     ctx.lineWidth = 1;
@@ -490,16 +509,16 @@ export class Office {
   bubble(ctx, text, x, y, alpha, color) {
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.font = '500 12px Pretendard, system-ui, sans-serif';
-    const maxW = 170;
+    ctx.font = '500 14px Pretendard, system-ui, sans-serif';
+    const maxW = 220;
     const lines = [];
     let cur = '';
     for (const ch of text) {
       if (ctx.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; } else cur += ch;
     }
     if (cur) lines.push(cur);
-    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16;
-    const h = lines.length * 16 + 10;
+    const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 20;
+    const h = lines.length * 19 + 12;
     const bx = Math.max(4, Math.min(this.cw - w - 4, x - w / 2)), by = y - h - 8;
     ctx.shadowColor = 'rgba(0,0,0,.15)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
     ctx.fillStyle = '#fff';
@@ -509,7 +528,7 @@ export class Office {
     ctx.strokeStyle = color; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.roundRect(bx, by, w, h, 8); ctx.stroke();
     ctx.fillStyle = '#1f2328'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    lines.forEach((l, i) => ctx.fillText(l, bx + 8, by + 6 + i * 16));
+    lines.forEach((l, i) => ctx.fillText(l, bx + 10, by + 7 + i * 19));
     ctx.restore();
   }
 
@@ -519,7 +538,8 @@ export class Office {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.cw, this.ch);
-    if (!this.layer) this.layer = this.drawFloorLayer();
+    const key = `${this.floor}:${this.a}:${this.ox}:${this.oy}:${this.canvas.width}`;
+    if (!this.layer || key !== this.layerKey) { this.layer = this.drawFloorLayer(); this.layerKey = key; }
     ctx.drawImage(this.layer, 0, 0, this.cw, this.ch);
 
     const f = FLOORS[this.floor];
@@ -563,21 +583,22 @@ export class Office {
     // 방 이름표
     for (const r of this.a < 11 ? [] : f.rooms) {
       const [lx, ly] = this.iso(r.x + r.w / 2, r.y + r.h * 0.42, r.walls ? 1.25 : 0.6);
-      this.label(ctx, r.label || r.id, lx, ly, { size: Math.max(10, Math.min(13, this.a * 0.42)), font: `700 ${Math.max(10, Math.min(13, this.a * 0.42))}px Pretendard, system-ui, sans-serif` });
+      const fs = Math.max(12, Math.min(15, this.a * 0.5));
+      this.label(ctx, r.label || r.id, lx, ly, { size: fs, font: `700 ${fs}px Pretendard, system-ui, sans-serif` });
     }
     // 이름표, 상태, 말풍선
     this.hits = [];
     for (const h of heads) {
-      if (h.ceo) { this.label(ctx, '대표님', h.px, h.py + 12, { size: 10, bg: '#2d3340', color: '#fff', border: '#2d3340' }); continue; }
+      if (h.ceo) { this.label(ctx, '대표님', h.px, h.py + 14, { size: 12, bg: '#2d3340', color: '#fff', border: '#2d3340' }); continue; }
       const a = h.s.agent;
-      this.label(ctx, a.name, h.px, h.py + 12, { size: 10, dot: a.color });
+      this.label(ctx, a.name, h.px, h.py + 14, { size: 12, dot: a.color, font: '700 12px Pretendard, system-ui, sans-serif' });
       this.hits.push({ id: a.id, x: h.px, y: (h.py + h.top) / 2, r: Math.max(14, this.a * 0.55) });
       const sayOn = a.say && now - a.say.at < a.say.ms;
       if (sayOn) {
         const left = a.say.ms - (now - a.say.at);
         this.bubble(ctx, a.say.text, h.px, h.top, Math.min(1, left / 400), a.color);
       } else if (a.activity && (a.status === 'working' || a.status === 'waiting') && !h.s.walking) {
-        this.label(ctx, a.activity, h.px, h.top - 10, { size: 10, dot: a.status === 'waiting' ? '#e0566a' : '#22a37f', border: a.color });
+        this.label(ctx, a.activity, h.px, h.top - 12, { size: 12, dot: a.status === 'waiting' ? '#e0566a' : '#22a37f', border: a.color });
       }
     }
   }
