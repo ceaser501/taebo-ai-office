@@ -38,8 +38,8 @@
     const n = Math.floor((e.dist || 0) / (A.strides[e.species] * standOf(e) / A.stand)) % WALK_N;
     return (up ? "stepB" : "stepF") + n;
   }
-  const SHEETS = ["frog", "frog2", "frog3", "frogmini", "frogwalk", "frogphone",
-                  "capy", "capy2", "capy3", "capymini", "capywalk", "capyphone"];
+  // [태보 추가] 고른 캐릭터 종류의 시트만 — 사람(man·woman)은 office-humans.js 가 그려 준다
+  const SHEETS = OfficeSpecies.list.flatMap(sp => ["", "2", "3", "mini", "walk", "phone"].map(t => sp + t));
   const TINT = 0.6;              // 색칠한 칸 축척 — 쓰는 자세만 그때그때 칠해 메모리를 아낀다
   const STAND = 96;              // 보통 캐릭터 키(사무실 그림 픽셀)
   const KID = 0.7;               // 커밋이 적은 저장소 = 꼬마(70%)
@@ -62,8 +62,10 @@
     if (st.imgs) return;
     st.imgs = {};
     const names = ["floor", "chairs", ...SHEETS.flatMap(s => [s, s + "-key"])];
-    let left = names.length;
+    const drawn = OfficeHumans.build(OfficeSpecies.list, A);   // [태보 추가]
+    let left = names.filter(n => !drawn[n]).length;
     for (const n of names) {
+      if (drawn[n]) { st.imgs[n] = drawn[n]; continue; }
       const img = new Image();
       img.onload = () => { if (--left === 0) { st.loaded = true; bar(); } };
       img.onerror = () => { st.failImg = true; bar(); };
@@ -513,6 +515,10 @@
     await I18N.init();
     applyText();
     for (const b of document.querySelectorAll("#lang button")) b.onclick = () => I18N.setLang(b.dataset.lang);
+    for (const b of document.querySelectorAll("#species button")) {     // [태보 추가] 캐릭터 고르기
+      b.setAttribute("aria-pressed", b.dataset.sp === OfficeSpecies.mode ? "true" : "false");
+      b.onclick = () => OfficeSpecies.set(b.dataset.sp);
+    }
     I18N.onChange(() => {
       applyText();
       if (st.people) OfficeLife.sync(st.people.map(toLife));   // 말풍선 글도 새 언어로

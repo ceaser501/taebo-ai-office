@@ -13,7 +13,10 @@
 | 파일 | 바꾼 점 |
 |---|---|
 | `web/office-demo.js` | 새 파일. `server/demo.mjs`의 가짜 데이터를 브라우저에서 만듭니다. 127.0.0.1·localhost가 아닌 주소에서 열거나 `?demo=1`일 때만 켜집니다 |
-| `web/office-view.js` | 브라우저 데모가 켜져 있으면 `/api/office` 대신 그 데이터를 씁니다 |
+| `web/office-view.js` | 브라우저 데모가 켜져 있으면 `/api/office` 대신 그 데이터를 씁니다. 고른 캐릭터의 시트만 불러오고, 사람 시트는 그려서 씁니다 |
+| `web/office-humans.js` | 새 파일. 사람 직원(짧은 머리·단발) 그림 시트를 원본 규격(칸 220×280, 같은 자세 순서, 가디건 색칠 마스크)대로 브라우저에서 그립니다. 캐릭터 고르기(`?species=people·man·woman·frog·capy·mix`)도 여기 있습니다. 기본값은 사람 |
+| `web/office-life.js` | 캐릭터 종류를 고른 값에 따라 정합니다(`speciesOf` 한 줄) |
+| `web/index.html`, `web/style.css`, `web/i18n.js` | 오른쪽 위 캐릭터 고르기 버튼(사람·개구리·카피바라·섞기) |
 | `web/i18n.js` | 브라우저 데모에서는 `/api/config`를 읽지 않습니다 |
 | `web/index.html` | `office-demo.js`를 불러옵니다 |
 | `index.html` | 새 파일. `web/`으로 넘겨 주는 진입 페이지입니다 |

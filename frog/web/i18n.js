@@ -10,6 +10,7 @@ const I18N = (() => {
     ko: {
       title: "3D 사무실",
       "lang.label": "언어",
+      "sp.label": "캐릭터", "sp.people": "사람", "sp.frog": "개구리", "sp.capy": "카피바라", "sp.mix": "섞기",
       "side.people": "사무실 사람들",
       "side.log": "활동 로그",
       "side.hint": "캐릭터나 이름을 누르면 자세히 봅니다",
@@ -41,6 +42,7 @@ const I18N = (() => {
     en: {
       title: "3D Office",
       "lang.label": "Language",
+      "sp.label": "Characters", "sp.people": "People", "sp.frog": "Frogs", "sp.capy": "Capybaras", "sp.mix": "Mix",
       "side.people": "People in the office",
       "side.log": "Activity",
       "side.hint": "Click a character or a name for details",

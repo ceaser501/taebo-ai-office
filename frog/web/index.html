@@ -14,6 +14,12 @@
   <h1 data-i18n="title">3D 사무실</h1>
   <p id="summary" aria-live="polite"></p>
   <span id="demo" data-i18n="demo" hidden>데모 데이터</span>
+  <div id="species" role="group" data-i18n-aria="sp.label" aria-label="캐릭터">
+    <button type="button" data-sp="people" data-i18n="sp.people">사람</button>
+    <button type="button" data-sp="frog" data-i18n="sp.frog">개구리</button>
+    <button type="button" data-sp="capy" data-i18n="sp.capy">카피바라</button>
+    <button type="button" data-sp="mix" data-i18n="sp.mix">섞기</button>
+  </div>
   <div id="lang" role="group" data-i18n-aria="lang.label" aria-label="언어">
     <button type="button" data-lang="ko" aria-pressed="false">한국어</button>
     <button type="button" data-lang="en" aria-pressed="false">EN</button>
@@ -37,6 +43,7 @@
 </main>
 
 <script src="office-demo.js"></script>
+<script src="office-humans.js"></script>
 <script src="i18n.js"></script>
 <script src="office-world.js"></script>
 <script src="office-atlas.js"></script>
