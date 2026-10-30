@@ -91,7 +91,11 @@ async function connect() {
   const canLocal = location.protocol === 'https:' || location.protocol === 'http:';
   const isLocalHost = canLocal && new URL(LOCAL).origin === location.origin;
   let snap = await probe('');
-  if (snap) link = 'same';
+  if (snap) {
+    link = 'same';
+    // 내 PC 서버로 연 화면에는 frog/ 폴더가 없으니 Pages의 개구리 사무실로 보낸다
+    document.querySelector('.other-office').href = 'https://ceaser501.github.io/taebo-ai-office/frog/';
+  }
   else if (canLocal && !isLocalHost && store.get('office-local')) {
     snap = await probe(LOCAL, 4000);
     if (snap) { link = 'local'; BASE = LOCAL; }
