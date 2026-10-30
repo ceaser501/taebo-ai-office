@@ -93,8 +93,8 @@ async function connect() {
   let snap = await probe('');
   if (snap) {
     link = 'same';
-    // 내 PC 서버로 연 화면에는 frog/ 폴더가 없으니 Pages의 개구리 사무실로 보낸다
-    document.querySelector('.other-office').href = 'https://ceaser501.github.io/taebo-ai-office/frog/';
+    // 서버로 연 화면이면 그 서버의 사람 사무실(/people/)로 보낸다
+    document.querySelector('.other-office').href = snap.features?.people ? 'people/' : 'https://ceaser501.github.io/taebo-ai-office/frog/';
   }
   else if (canLocal && !isLocalHost && store.get('office-local')) {
     snap = await probe(LOCAL, 4000);

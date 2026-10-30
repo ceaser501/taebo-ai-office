@@ -1,10 +1,9 @@
 "use strict";
-// [태보 추가] 브라우저 데모 — 내 PC 서버(127.0.0.1)가 아닌 곳(GitHub Pages 등)에서 열면
+// [태보 추가] 브라우저 데모 — 서버가 없는 GitHub Pages(*.github.io)에서 열면
 // server/demo.mjs 와 같은 가짜 사람들을 브라우저 안에서 만들어 /api/office 대신 쓴다.
-// 주소에 ?demo=1 을 붙이면 어디서든 데모로 본다.
+// 주소에 ?demo=1 을 붙이면 어디서든 데모로 본다. 태보 서버(/people/)·내 PC 서버에서는 진짜 데이터를 읽는다.
 const OfficeDemo = (() => {
-  const LOCAL = ["127.0.0.1", "localhost", "[::1]", "::1"];
-  const on = new URLSearchParams(location.search).has("demo") || !LOCAL.includes(location.hostname);
+  const on = new URLSearchParams(location.search).has("demo") || location.hostname.endsWith(".github.io");
 
   const LOG_N = 8;
   const CAST = [
