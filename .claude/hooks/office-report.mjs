@@ -5,6 +5,9 @@
 // 둘 중 하나라도 없으면 아무것도 안 한다. 어떤 오류에도 조용히 끝나고(exit 0), Claude 를 기다리게 하지 않는다.
 // 프롬프트·파일 내용은 보내지 않는다. 도구 이름과 짧게 자른 인자(파일 이름, 명령 설명 등)만 보낸다.
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { openSync, closeSync, statSync, unlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const SERVER = process.env.OFFICE_URL;
@@ -71,7 +74,21 @@ function send(body) {
 let raw = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (d) => { if (raw.length < 1e6) raw += d; });
+// 레포 훅과 사용자 훅(~/.claude)이 둘 다 깔려 있으면 같은 사건으로 두 번 불린다 — 먼저 온 쪽만 보낸다
+function firstCall(raw) {
+  const mark = path.join(os.tmpdir(), `office-report-${createHash('sha1').update(raw).digest('hex').slice(0, 16)}`);
+  try {
+    if (Date.now() - statSync(mark).mtimeMs < 10e3) return false;
+    unlinkSync(mark);
+  } catch { /* 처음 */ }
+  try { closeSync(openSync(mark, 'wx')); return true; } catch { return false; }
+}
+
 process.stdin.on('end', () => {
-  try { const body = payload(JSON.parse(raw || '{}')); if (body.sessionId) send(body); } catch { /* 조용히 */ }
+  try {
+    if (!firstCall(raw)) return;
+    const body = payload(JSON.parse(raw || '{}'));
+    if (body.sessionId) send(body);
+  } catch { /* 조용히 */ }
 });
 process.stdin.on('error', () => process.exit(0));

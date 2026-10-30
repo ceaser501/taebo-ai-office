@@ -54,23 +54,32 @@ npm run up
 
 ## 4. 클라우드 세션이 사람 사무실에 나오게
 
-claude.ai의 Claude Code 클라우드 세션은 **레포의 `.claude/settings.json` 훅**을 실행합니다. 이 훅이 세션 상태를 내 맥 서버로 보냅니다.
+claude.ai/code에서 세션 제목 줄의 **클라우드 환경 메뉴 → Edit**를 열고 세 군데를 채웁니다. 저장한 뒤 **새로 여는 세션부터** 적용됩니다.
 
-1. **보고할 레포에 훅 넣기**: 이 레포(`taebo-ai-office`)에는 이미 들어 있습니다. 다른 레포는 이 레포 폴더에서 아래를 실행하고, 그 레포에 커밋, 푸시하세요.
-   ```bash
-   node cloud-report/install.mjs ../다른-레포
+1. **Environment variables**
    ```
-2. **클라우드 환경 설정**: claude.ai/code에서 세션 제목 줄의 환경 메뉴 → Edit
-   - **Environment variables**: `OFFICE_URL=https://<내 도메인>`, `OFFICE_TOKEN=<.env의 OFFICE_TOKEN>`
-   - **Network access**: Allowed domains에 `<내 도메인>`을 추가합니다. Allow package managers 체크는 그대로 둡니다.
-3. 새 세션을 열면 그 레포 이름의 직원이 사람 사무실에 출근합니다.
+   OFFICE_URL=https://<내 도메인>
+   OFFICE_TOKEN=<.env의 OFFICE_TOKEN>
+   ```
+2. **Network access**: Allowed domains에 `<내 도메인>`을 추가합니다. Allow package managers 체크는 그대로 둡니다.
+3. **Setup script**: 아래를 그대로 붙여 넣습니다. 새 세션 컨테이너가 준비될 때 보고 훅을 **사용자 설정(`~/.claude`)**에 깝니다. 그래서 어떤 레포로 세션을 열든, 레포를 몇 개 붙이든 보고합니다.
+   ```bash
+   {
+     mkdir -p ~/.claude/hooks &&
+     curl -fsSL https://raw.githubusercontent.com/ceaser501/taebo-ai-office/main/cloud-report/office-report.mjs -o ~/.claude/hooks/office-report.mjs &&
+     curl -fsSL https://raw.githubusercontent.com/ceaser501/taebo-ai-office/main/cloud-report/install.mjs -o /tmp/office-install.mjs &&
+     node /tmp/office-install.mjs --user
+   } || echo "사무실 보고 훅을 못 깔았어요 (세션에는 영향 없음)"
+   ```
 
-맥 터미널의 Claude Code도 보이게 하려면 `~/.zshrc`에 아래 두 줄을 넣어 두세요. 같은 레포라면 클라우드 세션과 한 직원으로 합쳐집니다.
+새 세션을 열고 아무 일이나 시키면 **그 세션의 주 레포 이름**으로 직원이 출근합니다. 레포가 여러 개 붙어 있으면 맨 앞(주) 레포 이름으로 나옵니다.
 
-```bash
-export OFFICE_URL=http://localhost:4300
-export OFFICE_TOKEN=<.env의 OFFICE_TOKEN>
-```
+- **레포에 직접 넣는 방법도 있습니다**: `node cloud-report/install.mjs ../그-레포` 후 커밋. 이 방법은 그 레포가 **주 레포**로 열린 세션만 보고합니다. `taebo-ai-office`와 `taebo-house`에는 이미 들어 있고, Setup script와 같이 깔려 있어도 한 번만 보고합니다.
+- **맥 터미널의 Claude Code도 보이게 하려면**: 레포 폴더에서 `node cloud-report/install.mjs --user`를 한 번 실행하고, `~/.zshrc`에 아래 두 줄을 넣습니다.
+  ```bash
+  export OFFICE_URL=http://localhost:4300
+  export OFFICE_TOKEN=<.env의 OFFICE_TOKEN>
+  ```
 
 ### 보내는 것과 보내지 않는 것
 
