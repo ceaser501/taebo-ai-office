@@ -12,7 +12,7 @@
 
 써 보고 괜찮으면 아래 둘 중에서 진행합니다.
 
-### ② 클라우드 서버에 올리기
+### ② 클라우드 서버에 올리기 — 진행 중 (Hugging Face Spaces + Supabase 무료, [deploy/README.md](deploy/README.md))
 
 어디서든(폰 포함) 접속해서 일을 시키는 24시간 사무실입니다.
 

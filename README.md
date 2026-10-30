@@ -5,7 +5,9 @@
 > | 사무실 | 하는 일 | 주소 |
 > |---|---|---|
 > | **태보 AI 사무실** (이 문서) | 일감을 주면 AI 팀이 나눠서 일하고 컨펌을 받으러 옴 | https://ceaser501.github.io/taebo-ai-office/ |
-> | **🐸 개구리 사무실** ([frog/](frog/)) | 내가 띄운 Claude Code 창들을 직원으로 지켜보는 화면 (보기 전용, MIT 원본 사본) | https://ceaser501.github.io/taebo-ai-office/frog/ |
+> | **👥 사람 사무실** ([frog/](frog/)) | 내 Claude Code 세션(클라우드 세션 포함)을 직원으로 지켜보는 화면. 보기 전용, MIT 원본(claude-3d-frog-office) 사본에 사람 캐릭터 추가 | https://ceaser501.github.io/taebo-ai-office/frog/ (데모) |
+>
+> **밖에서 실제로 쓰기**: Hugging Face Spaces와 Supabase(무료)에 올리는 방법은 [deploy/README.md](deploy/README.md)에 있습니다. 서버 하나에 두 사무실이 같이 뜨고, 클라우드 세션도 사람 사무실에 나옵니다.
 
 Claude 에이전트 팀이 일하는 모습을 아이소메트릭 사무실로 보여 주는 관제 대시보드입니다.
 일감을 시키면 PM이 필요한 사람과 순서를 정해 회의를 열고, 팀원들이 실제 Claude Code로 작업한 뒤 대표님께 컨펌을 받으러 옵니다.
