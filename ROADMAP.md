@@ -12,7 +12,11 @@
 
 써 보고 괜찮으면 아래 둘 중에서 진행합니다.
 
-### ② 클라우드 서버에 올리기 — 진행 중 (Hugging Face Spaces + Supabase 무료, [deploy/README.md](deploy/README.md))
+### ②' 내 맥 + ngrok 무료 고정 주소 — 지금 이 방식 ([deploy/README.md](deploy/README.md))
+
+맥이 켜져 있는 동안 밖에서 접속할 수 있습니다. Hugging Face Spaces는 2026년부터 Docker Space가 유료(PRO)라서 뺐습니다.
+
+### ② 클라우드 서버에 올리기 (맥 없이 24시간)
 
 어디서든(폰 포함) 접속해서 일을 시키는 24시간 사무실입니다.
 

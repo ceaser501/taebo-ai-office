@@ -60,7 +60,7 @@ function payload(h) {
 function send(body) {
   const url = SERVER.replace(/\/+$/, '') + '/api/report';
   const c = spawn('curl', ['-sS', '-m', '5', '-o', '/dev/null', '-X', 'POST',
-    '-H', 'content-type: application/json', '-H', `authorization: Bearer ${TOKEN}`, '--data-binary', '@-', url],
+    '-H', 'content-type: application/json', '-H', `authorization: Bearer ${TOKEN}`, '-H', 'ngrok-skip-browser-warning: 1', '--data-binary', '@-', url],
   { detached: true, stdio: ['pipe', 'ignore', 'ignore'] });
   c.on('error', () => process.exit(0));
   c.stdin.on('error', () => {});
